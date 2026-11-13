@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作與休息計時器</title>
+  <style>
+    /* 基礎變數與現代簡約配色，支援自動深淺色模式 */
+    :root {
+      --bg-color: #f4f6f8;
+      --card-bg: #ffffff;
+      --text-main: #1f2937;
+      --text-muted: #6b7280;
+      --border-color: #e5e7eb;
+      --work-color: #2563eb;
+      --work-bg: #eff6ff;
+      --rest-color: #059669;
+      --rest-bg: #ecfdf5;
+      --danger-color: #dc2626;
+      --danger-bg: #fef2f2;
+      --btn-primary: #111827;
+      --btn-primary-hover: #374151;
+      --btn-secondary: #f3f4f6;
+      --btn-secondary-hover: #e5e7eb;
+      --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-color: #111827;
+        --card-bg: #1f2937;
+        --text-main: #f9fafb;
+        --text-muted: #9ca3af;
+        --border-color: #374151;
+        --work-color: #60a5fa;
+        --work-bg: rgba(37, 99, 235, 0.15);
+        --rest-color: #34d399;
+        --rest-bg: rgba(5, 150, 105, 0.15);
+        --danger-color: #f87171;
+        --danger-bg: rgba(220, 38, 38, 0.15);
+        --btn-primary: #3b82f6;
+        --btn-primary-hover: #2563eb;
+        --btn-secondary: #374151;
+        --btn-secondary-hover: #4b5563;
+        --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      line-height: 1.5;
+    }
+
+    /* 主卡片容器 */
+    .container {
+      width: 100%;
+      max-width: 440px;
+      background-color: var(--card-bg);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    /* 設定區塊 */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .form-group.full-width {
+      grid-column: span 2;
+    }
+
+    label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      font-size: 1rem;
+      color: var(--text-main);
+      background-color: var(--bg-color);
+      border: 1.5px solid var(--border-color);
+      border-radius: 10px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus,
+    select:focus {
+      border-color: var(--work-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    input.input-error {
+      border-color: var(--danger-color);
+      background-color: var(--danger-bg);
+    }
+
+    /* 錯誤與驗證提示訊息 */
+    .error-banner {
+      display: none;
+      background-color: var(--danger-bg);
+      color: var(--danger-color);
+      border: 1px solid var(--danger-color);
+      border-radius: 10px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 1.25rem;
+      text-align: center;
+    }
+
+    .error-banner.visible {
+      display: block;
+    }
+
+    /* 狀態與時間顯示區 */
+    .display-box {
+      background-color: var(--bg-color);
+      border-radius: 16px;
+      padding: 1.75rem 1rem;
+      text-align: center;
+      margin: 1.25rem 0 1.5rem;
+      border: 1px solid var(--border-color);
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    .display-box.phase-work {
+      background-color: var(--work-bg);
+      border-color: rgba(37, 99, 235, 0.25);
+    }
+
+    .display-box.phase-rest {
+      background-color: var(--rest-bg);
+      border-color: rgba(5, 150, 105, 0.25);
+    }
+
+    .phase-badge {
+      display: inline-block;
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+
+    .phase-work .phase-badge {
+      background-color: var(--work-color);
+      color: #ffffff;
+    }
+
+    .phase-rest .phase-badge {
+      background-color: var(--rest-color);
+      color: #ffffff;
+    }
+
+    .timer-digits {
+      font-size: 4.25rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+      margin: 0.25rem 0;
+    }
+
+    .status-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    .status-text.finished {
+      color: var(--danger-color);
+      font-weight: 700;
+    }
+
+    /* 控制按鈕群組 */
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    button {
+      padding: 0.85rem 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.2s, opacity 0.2s;
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-start {
+      background-color: var(--btn-primary);
+      color: #ffffff;
+    }
+
+    .btn-start:hover:not(:disabled) {
+      background-color: var(--btn-primary-hover);
+    }
+
+    .btn-pause,
+    .btn-reset {
+      background-color: var(--btn-secondary);
+      color: var(--text-main);
+    }
+
+    .btn-pause:hover:not(:disabled),
+    .btn-reset:hover:not(:disabled) {
+      background-color: var(--btn-secondary-hover);
+    }
+
+    @media (max-width: 400px) {
+      .container {
+        padding: 1.5rem 1.25rem;
+      }
+      .timer-digits {
+        font-size: 3.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="container">
+    <h1>工作／休息計時器</h1>
+
+    <!-- 時間與階段設定 -->
+    <div class="settings-grid">
+      <div class="form-group">
+        <label for="workInput">工作時間（分鐘）</label>
+        <!-- 使用 type="text" 搭配 inputmode="numeric"，確保能完整偵測並攔截小數點、文字或空白 -->
+        <input type="text" id="workInput" inputmode="numeric" value="25" placeholder="1 ~ 180">
+      </div>
+
+      <div class="form-group">
+        <label for="restInput">休息時間（分鐘）</label>
+        <input type="text" id="restInput" inputmode="numeric" value="5" placeholder="1 ~ 180">
+      </div>
+
+      <div class="form-group full-width">
+        <label for="phaseSelect">目前階段</label>
+        <select id="phaseSelect">
+          <option value="work">工作</option>
+          <option value="rest">休息</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 輸入驗證提示區 -->
+    <div id="errorBanner" class="error-banner" role="alert">
+      請輸入 1 到 180 之間的整數。
+    </div>
+
+    <!-- 計時顯示主畫面 -->
+    <section id="displayBox" class="display-box phase-work" aria-live="polite">
+      <div id="phaseDisplay" class="phase-badge">目前階段：工作</div>
+      <div id="timeDisplay" class="timer-digits">25:00</div>
+      <div id="statusDisplay" class="status-text">狀態：已停止（準備就緒）</div>
+    </section>
+
+    <!-- 操作按鈕 -->
+    <div class="controls">
+      <button type="button" id="startBtn" class="btn-start">開始</button>
+      <button type="button" id="pauseBtn" class="btn-pause" disabled>暫停</button>
+      <button type="button" id="resetBtn" class="btn-reset">重設</button>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      // 定義四種明確的計時器狀態常數
+      const STATE = {
+        STOPPED: 'STOPPED',     // 停止（初始或重設後）
+        RUNNING: 'RUNNING',     // 倒數中
+        PAUSED: 'PAUSED',       // 暫停中
+        FINISHED: 'FINISHED'    // 時間到（歸零）
+      };
+
+      // DOM 元素參照
+      const workInput = document.getElementById('workInput');
+      const restInput = document.getElementById('restInput');
+      const phaseSelect = document.getElementById('phaseSelect');
+      const errorBanner = document.getElementById('errorBanner');
+      const displayBox = document.getElementById('displayBox');
+      const phaseDisplay = document.getElementById('phaseDisplay');
+      const timeDisplay = document.getElementById('timeDisplay');
+      const statusDisplay = document.getElementById('statusDisplay');
+      const startBtn = document.getElementById('startBtn');
+      const pauseBtn = document.getElementById('pauseBtn');
+      const resetBtn = document.getElementById('resetBtn');
+
+      // 應用程式核心狀態變數
+      let currentState = STATE.STOPPED;
+      let currentPhase = 'work'; // 'work' 或 'rest'
+      let remainingSeconds = 25 * 60;
+      let timerId = null;
+
+      /**
+       * 驗證單一分鐘欄位：必須為 1 到 180 的純整數
+       * 拒絕空白、小數、負數、非數字文字、0 或大於 180 的數值
+       */
+      function parseValidMinutes(rawValue) {
+        const trimmed = rawValue.trim();
+        // 使用正規表達式確保只有數字字元（排除小數點、負號、科學記號 e 等）
+        if (!/^\d+$/.test(trimmed)) {
+          return null;
+        }
+        const num = Number(trimmed);
+        if (!Number.isInteger(num) || num < 1 || num > 180) {
+          return null;
+        }
+        return num;
+      }
+
+      /**
+       * 檢查兩個輸入欄位並更新錯誤提示外觀
+       * 回傳 { isValid, workMinutes, restMinutes }
+       */
+      function validateInputs() {
+        const workMins = parseValidMinutes(workInput.value);
+        const restMins = parseValidMinutes(restInput.value);
+
+        const isWorkValid = workMins !== null;
+        const isRestValid = restMins !== null;
+
+        workInput.classList.toggle('input-error', !isWorkValid);
+        restInput.classList.toggle('input-error', !isRestValid);
+
+        if (!isWorkValid || !isRestValid) {
+          errorBanner.textContent = '輸入無效：工作時間與休息時間皆須為 1 到 180 的整數。';
+          errorBanner.classList.add('visible');
+          return { isValid: false, workMinutes: null, restMinutes: null };
+        }
+
+        errorBanner.classList.remove('visible');
+        return { isValid: true, workMinutes: workMins, restMinutes: restMins };
+      }
+
+      /**
+       * 將秒數格式化為 MM:SS（例如 180 分鐘會顯示為 180:00）
+       */
+      function formatTime(totalSeconds) {
+        const safeSeconds = Math.max(0, totalSeconds);
+        const mins = Math.floor(safeSeconds / 60);
+        const secs = safeSeconds % 60;
+        const mm = String(mins).padStart(2, '0');
+        const ss = String(secs).padStart(2, '0');
+        return `${mm}:${ss}`;
+      }
+
+      /**
+       * 清除背景計時器，確保不會有多個 interval 同時運作
+       */
+      function clearTimerInterval() {
+        if (timerId !== null) {
+          clearInterval(timerId);
+          timerId = null;
+        }
+      }
+
+      /**
+       * 根據目前狀態與資料更新整個畫面 UI
+       */
+      function render() {
+        // 更新階段樣式與文字
+        const isWork = currentPhase === 'work';
+        displayBox.classList.toggle('phase-work', isWork);
+        displayBox.classList.toggle('phase-rest', !isWork);
+        phaseDisplay.textContent = `目前階段：${isWork ? '工作' : '休息'}`;
+
+        // 更新時間顯示
+        timeDisplay.textContent = formatTime(remainingSeconds);
+
+        // 更新狀態文字與按鈕啟用狀態
+        statusDisplay.classList.remove('finished');
+
+        switch (currentState) {
+          case STATE.STOPPED:
+            statusDisplay.textContent = '狀態：已停止';
+            startBtn.disabled = false;
+            pauseBtn.disabled = true;
+            break;
+
+          case STATE.RUNNING:
+            statusDisplay.textContent = '狀態：倒數中...';
+            startBtn.disabled = true; // 倒數中禁用開始鍵，防止重複點擊
+            pauseBtn.disabled = false;
+            break;
+
+          case STATE.PAUSED:
+            statusDisplay.textContent = '狀態：已暫停';
+            startBtn.disabled = false; // 允許繼續倒數
+            pauseBtn.disabled = true;
+            break;
+
+          case STATE.FINISHED:
+            statusDisplay.textContent = '狀態：時間到！';
+            statusDisplay.classList.add('finished');
+            startBtn.disabled = true;  // 歸零後不可直接按開始，需按重設
+            pauseBtn.disabled = true;
+            break;
+        }
+      }
+
+      /**
+       * 重設計時器至目前選定階段的設定時間，並進入 STOPPED 狀態
+       */
+      function resetToCurrentPhase() {
+        clearTimerInterval();
+        currentState = STATE.STOPPED;
+
+        const validation = validateInputs();
+        if (validation.isValid) {
+          const targetMinutes = currentPhase === 'work' ? validation.workMinutes : validation.restMinutes;
+          remainingSeconds = targetMinutes * 60;
+        } else {
+          // 若目前欄位有誤，仍將剩餘時間歸零等待修正
+          remainingSeconds = 0;
+        }
+        render();
+      }
+
+      /**
+       * 開始或繼續倒數
+       */
+      function startTimer() {
+        // 防呆：若已經在倒數中，或已經時間到（0秒），不執行任何動作，避免重複啟動加快速度
+        if (currentState === STATE.RUNNING || currentState === STATE.FINISHED) {
+          return;
+        }
+
+        // 驗證輸入是否合法
+        const validation = validateInputs();
+        if (!validation.isValid) {
+          return;
+        }
+
+        // 若處於停止狀態，確保從最新輸入的設定時間開始
+        if (currentState === STATE.STOPPED) {
+          const targetMinutes = currentPhase === 'work' ? validation.workMinutes : validation.restMinutes;
+          remainingSeconds = targetMinutes * 60;
+        }
+
+        // 切換為倒數狀態並啟動單一 interval
+        currentState = STATE.RUNNING;
+        render();
+
+        clearTimerInterval();
+        timerId = setInterval(() => {
+          if (remainingSeconds > 1) {
+            remainingSeconds -= 1;
+            render();
+          } else {
+            // 倒數抵達 0：強制歸零、停止計時器、切換為時間到狀態，絕不出現負數也不自動切換階段
+            remainingSeconds = 0;
+            clearTimerInterval();
+            currentState = STATE.FINISHED;
+            render();
+          }
+        }, 1000);
+      }
+
+      /**
+       * 暫停倒數，保留目前的 remainingSeconds
+       */
+      function pauseTimer() {
+        if (currentState !== STATE.RUNNING) {
+          return;
+        }
+        clearTimerInterval();
+        currentState = STATE.PAUSED;
+        render();
+      }
+
+      // 綁定按鈕事件
+      startBtn.addEventListener('click', startTimer);
+      pauseBtn.addEventListener('click', pauseTimer);
+      resetBtn.addEventListener('click', resetToCurrentPhase);
+
+      // 切換「目前階段」選單時，停止計時並載入新階段的時間
+      phaseSelect.addEventListener('change', (e) => {
+        currentPhase = e.target.value;
+        resetToCurrentPhase();
+      });
+
+      // 即時驗證輸入欄位；若處於「已停止」狀態且輸入合法，同步更新畫面上的預設時間
+      function handleTimeInput() {
+        const validation = validateInputs();
+        if (currentState === STATE.STOPPED && validation.isValid) {
+          const targetMinutes = currentPhase === 'work' ? validation.workMinutes : validation.restMinutes;
+          remainingSeconds = targetMinutes * 60;
+          render();
+        }
+      }
+
+      workInput.addEventListener('input', handleTimeInput);
+      restInput.addEventListener('input', handleTimeInput);
+
+      // 頁面載入時執行初始渲染
+      resetToCurrentPhase();
+    })();
+  </script>
+</body>
+</html>
